@@ -12,6 +12,6 @@ Streamlit web app to clean and visualize the Titanic dataset.
 1. Clone the repo:
    ```bash
    pip install -r requirements.txt
-   streamlit run app.py
+   streamlit run first.py
 
 
