@@ -27,6 +27,15 @@ st.markdown(
 
 # -------- إعداد الصفحة --------
 st.set_page_config(page_title="Titanic Dashboard", layout="wide")
+
+# -------- تهيئة session_state --------
+if "df" not in st.session_state:
+    st.session_state.df = None
+if "issues" not in st.session_state:
+    st.session_state.issues = {}
+
+
+
 st.markdown(
     """
     <style>
@@ -101,8 +110,7 @@ def ensure_fare_numeric(df):
     return df
 
 def convert_to_categorical(df):
-    if "Survived" in df.columns:
-        df["Survived"] = df["Survived"].astype("category")
+    
     if "Pclass" in df.columns:
         df["Pclass"] = df["Pclass"].astype("category")
     return df
@@ -115,6 +123,41 @@ def drop_columns(df,col_name):
 #set two pages
 
 page = st.sidebar.radio("Navigation", ["Clean Data", "Dashboard"])
+# =========================================================
+# User Instructions (Sidebar)
+# =========================================================
+st.sidebar.markdown("## 📖 Instructions")
+
+st.sidebar.info("""
+1. Go to **Clean Data** first:
+   - Click 📂 **Load Data** to import the Titanic dataset.
+   - Use the buttons to remove duplicates or fill missing values.
+   - Drop unnecessary columns if needed.
+
+2. After cleaning, click 💾 **Save Changes** to store a cleaned version.
+
+3. Switch to **Dashboard**:
+   - Apply filters (Embarked, Sex, Pclass, Age).
+   - Monitor the KPIs (Passengers, Survival Rate, Average Age, Average Fare).
+   - Explore the charts to understand passengers distribution and survival patterns.
+""")
+
+# =========================================================
+# Welcome Section
+# =========================================================
+if page not in ["Clean Data", "Dashboard"]:
+    st.title("🚢 Welcome to the Titanic Dashboard")
+    st.markdown("""
+    This application helps you explore and clean the Titanic dataset, and 
+    visualize survival statistics with interactive charts.
+
+    ### 🔎 Features:
+    - **Data Cleaning:** Handle duplicates, missing values, and column transformations.
+    - **Dashboard:** Apply filters, monitor KPIs, and view interactive charts.
+    
+    👉 Use the sidebar to navigate between **Clean Data** and **Dashboard**.
+    """)
+
 
 # =========================================================
 # صفحة تنظيف البيانات
@@ -130,8 +173,6 @@ if page == 'Clean Data':
         st.success("✅ Data loaded successfully!")
 
     if st.session_state.df is not None:
-        
-
         # --- الأزرار ---
         col1, col2, col3, col4, col5, col6 = st.columns(6)
 
@@ -141,33 +182,30 @@ if page == 'Clean Data':
                 st.session_state.issues = get_issues(st.session_state.df)
                 st.success("✅ Duplicates removed!")
 
-
-
         with col3:
             if st.button('Convert Sex to Numeric'):
                 st.session_state.df = convert_sex_to_numeric(st.session_state.df)
+                st.session_state.issues = get_issues(st.session_state.df)
                 st.success("✅ 'Sex' column converted to numeric!")
 
         with col4:
             if st.button('Ensure Fare is Numeric'):
                 st.session_state.df = ensure_fare_numeric(st.session_state.df)
+                st.session_state.issues = get_issues(st.session_state.df)
                 st.success("✅ Fare column converted to numeric!")
 
         with col5:
             if st.button('Convert to Categorical'):
                 st.session_state.df = convert_to_categorical(st.session_state.df)
+                st.session_state.issues = get_issues(st.session_state.df)
                 st.success("✅ Columns converted to categorical!")
 
-
-
-
-        col1,col2,col3 = st.columns([3,1,1])
+        # --- اختيار العمود + fill/drop ---
+        col1, col2, col3 = st.columns([3,1,1])
         with col1:
-        # --- اختيار العمود ---
-            # st.markdown("### 🛠️ Column Selection")
             selected_col = st.selectbox("Select Column:", st.session_state.df.columns)
         with col2:
-            st.write('Fille missing values')
+            st.write('Fill missing values')
             if st.button('Fill Missing'):
                 if st.session_state.df[selected_col].dtype in ['int64', 'float64']:
                     st.session_state.df[selected_col].fillna(
@@ -175,12 +213,20 @@ if page == 'Clean Data':
                 else:
                     st.session_state.df[selected_col].fillna(
                         st.session_state.df[selected_col].mode()[0], inplace=True)
+
+                # تحديث القيم
+                st.session_state.issues = get_issues(st.session_state.df)
                 st.success(f"✅ Missing values in '{selected_col}' filled!")
-            with col3:
-                st.write('Remove the selected column')
-                if st.button("Drop Column"):
-                    st.session_state.df = drop_columns(st.session_state.df,selected_col)
-                    st.success(f"✅ Column '{selected_col}' removed!")
+
+        with col3:
+            st.write('Remove the selected column')
+            if st.button("Drop Column"):
+                st.session_state.df = drop_columns(st.session_state.df, selected_col)
+
+                # تحديث القيم
+                st.session_state.issues = get_issues(st.session_state.df)
+                st.success(f"✅ Column '{selected_col}' removed!")
+
         # --- الكاردز الملونة ---
         st.markdown("### 📊 Data Issues Overview")
         col1, col2, col3, col4 = st.columns(4)
@@ -217,33 +263,26 @@ if page == 'Clean Data':
                 <div style="background: linear-gradient(90deg, #2ecc71, #27ae60);
                             color: white; padding: 15px; border-radius: 8px; 
                             text-align: center; font-weight: bold; font-size:18px;">
-                    Sex state<br><span style="font-size:24px;">Not fixed yet</span>
+                    Sex state<br><span style="font-size:24px;">Updated</span>
                 </div>
             """, unsafe_allow_html=True)
 
         # --- عرض الجدول ---
         st.subheader("📋 Current Data")
         st.dataframe(st.session_state.df, height=400)
-        #save button
-        sal1, sal2, sal3 =st.columns([1, 2, 1])
+
+        # --- زر حفظ ---
+        sal1, sal2, sal3 = st.columns([1, 2, 1])
         with sal1:
-          if st.button("💾 Save Changes"):
-    
-    # إنشاء اسم ملف جديد
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    saved_filename = f"Titanic-Cleaned-{timestamp}.csv"
-    
-    # حفظ نسخة CSV
-                    st.session_state.df.to_csv(saved_filename, index=False)
-    
-    # تخزين نسخة في session_state لتستخدمها Dashboard
-                    st.session_state["saved_df"] = st.session_state.df.copy()
-    
-                    st.success(f"✅ Changes saved successfully as '{saved_filename}'!")
-        with sal2:
-                pass
-        with sal3:
-                pass
+            if st.button("💾 Save Changes"):
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                saved_filename = f"Titanic-Cleaned-{timestamp}.csv"
+
+                st.session_state.df.to_csv(saved_filename, index=False)
+                st.session_state["saved_df"] = st.session_state.df.copy()
+
+                st.success(f"✅ Changes saved successfully as '{saved_filename}'!")
+
  
 
 
@@ -258,13 +297,16 @@ elif page == "Dashboard":
         return pd.read_csv("Titanic_cleaning_Data.csv")
 
     # إذا فيه بيانات محفوظة نستخدمها
-    if "saved_df" in st.session_state:
-        df_raw = st.session_state["saved_df"]
-        st.info("📂 Using the cleaned dataset (saved).")
+    if "saved_df" in st.session_state and st.session_state["saved_df"] is not None:
+      df_raw = st.session_state["saved_df"]
+      df = df_raw.copy()
+      st.info("📂 Using the cleaned dataset (saved).")
     else:
-        df_raw = load_data()
-        df = df_raw.copy()
-        st.warning("⚠️ No saved cleaned data found, using raw dataset.")
+      df_raw = load_data()
+      df = df_raw.copy()
+      st.warning("⚠️ No saved cleaned data found, using raw dataset.")
+ 
+
 
     st.title("🚢 Titanic Dashboard")
                                       
